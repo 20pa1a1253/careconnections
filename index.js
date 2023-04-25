@@ -1,17 +1,34 @@
 //const e = require("express");
 const express = require("express");
-
+const bodyParser = require('body-parser')
 const app = express();
+app.use(bodyParser.urlencoded({extended:false}))
 const port = 8000;
+const jsdom = require("jsdom");
+const { JSDOM } = jsdom;
 
+// Create a fake DOM environment
+const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body></body></html>`);
+const { window } = dom;
+
+// Define global variables for the fake environment
+global.window = window;
+global.document = window.document;
+global.navigator = window.navigator;
+
+const functions = require('firebase-functions');
 const { initializeApp , cert } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
+
+
 var serviceAccount = require("./key.json");
 initializeApp({
 	credential: cert(serviceAccount),
 });
 
-const db = getFirestore();
+
+ const db = getFirestore();
+//const db = firebase.firestore();
 
 app.set("view engine","ejs");
 app.use(express.static('public'));
@@ -19,6 +36,40 @@ app.use(express.static('public'));
 app.get("/",(req,res)=>{
 	res.render("home");
 });
+app.post("/fo",(req,res)=>{
+	res.render("fundforms");
+	
+
+	
+});
+app.post("/form",(req,res)=>{
+	res.send("donor");
+	const d=req.body.picker;
+	console.log(d)
+	switch (d) {
+		case "div1":
+
+		  // Show food related content
+		  
+		  break;
+		case "div2":
+		  // Show grocery related content
+		  break;
+		case "div3":
+		  // Show clothes related content
+		  break;
+		case "div4":
+		  // Show others related content
+		  break;
+		default:
+		  // Hide all content
+		  break;
+	  }
+	
+	
+	//}
+  });
+  
 app.get("/ss",(req,res)=>{
 	const n=req.query.nam;
 	db.collection("users").add({
@@ -130,7 +181,8 @@ app.get("/Or",async(req,res)=>{
 
  })
  const funds =[];
- app.get("/need",async(req,res)=>{
+ app.get("/funds",async(req,res)=>{
+
 	const mencl=req.query.men;
 	const food=req.query.food;
 	const phn=req.query.phn;
@@ -148,35 +200,73 @@ app.get("/Or",async(req,res)=>{
 	//console.log(funds);
 	//res.send("success");
 	var snapshot= await db.collection("donors").get();
-	db.collection("donors")
-	.where("phonenum","==",phn)
-	.get()
-	.then((docs)=>{
+	var re= db.collection("donors")
+	.where("phonenum","==",phn).get();
+	re.then((docs)=>{
 		res.send("Thanks for your contribution your'e funds collected :))");
 
-	});
-	// .then((docs)=>{
-	// 	return snapshot.docs.map(doc => {
-	// 		db.collection("donors").doc(doc.id).update({Funds:funds})
-	// 	});
-	// 	console.log(funds);
-	// })
+	})
+	
+	re.then((querySnapshot) => {
+		querySnapshot.forEach((doc) => {
+			console.log(doc.id);
+			
+			//exports.myFunction = functions.https.onCall((data, context) => {
+				db.collection("donors").doc(doc.id).get().then((doc) => {
+					const items = doc.data().Funds || [];
+					
+					// Add the new item to the items array
+					items.push({"number":phn,"food":food,"clothes":mencl,"clothcount":menum,"others":other,"othercount":othrnum});
+					console.log(items);
+					
+					// Update the items array in the document
+					db.collection("donors").doc(doc.id).update({
+					  "Funds": items
+				    })
+				// db.collection("donors").doc(doc.id).update({
+				// 	'Funds.number': phn,
+				// 	'Funds.food':food,
+				// 	'Funds.clothes':mencl,
+				// 	'Funds.clothcount':menum,
+				// 	'Funds.others':other,
+				// 	'Funds.otherscount':othrnum,
+				// });
+				// const docRef = db.collection('donors').doc(doc.id);
+				// docRef.update({
+				// 	'Funds': [funds]
+				//   });
+				  
+				
+				// console.log(doc.data().Funds)
+			//})
+		});
+	})
+	
+	
 	
  })
- app.get("/funds",(req,res)=>{
+})
+ app.get("/needs",(req,res)=>{
 	const ned=req.query.needs;
 	const num=req.query.number;
 	//const pwd=req.query.pwd;
-	 console.log(num);
+	const a=[];
+	var re= db.collection("Organisers").where("phone1","==",num);
+	console.log(num);
 	console.log(ned);
 	res.send("thankyou!!you're needs collected succesfully");
-	// db.collection("needs").add({
-	// 		need: ned,
-	// 		number : num,
-	// 	}).then(()=>{
-	// 		res.send("needs collected succesfully");
-	// 		console.log("emailadded");
-	// 	});	
+	re.get().then((querySnapshot) => {
+		querySnapshot.forEach((doc) => {
+			db.collection("Organisers").doc(doc.id).update({
+				needs:ned,
+				
+			})
+			
+			a.push(doc.id);
+			console.log(doc.id);
+		});
+	});
+	
 });
 const dc=[];
 app.get("/signupsubmit",async(req,res)=>{
@@ -273,4 +363,4 @@ app.get("/cart",(req,res)=>{
 });
 app.listen(port,()=>{
 	console.log(`You are in port number ${port}`);
-});
+})
